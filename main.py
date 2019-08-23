@@ -8,6 +8,7 @@ import time
 import execjs
 import requests
 import re
+import hashlib
 from openpyxl import load_workbook
 from openpyxl import Workbook
 from pyquery import PyQuery as pq
@@ -16,7 +17,24 @@ from PyQt5.QtWidgets import QMessageBox, QLineEdit, QDialog, QProgressBar
 from PyQt5.QtGui import QIcon, QPixmap, QPalette, QBrush, QMovie
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 # import PyQt5.sip
+import base64
+import os
+from memory_pic import *
 
+def get_pic(pic_code, pic_name):
+    image = open(pic_name, 'wb')
+    image.write(base64.b64decode(pic_code))
+    image.close()
+
+#MD5加密
+def md5Encode(str1):
+    m = hashlib.md5()
+    m.update(str1.encode(encoding="utf-8"))
+    return m.hexdigest()
+
+#Int转换为Str
+def IntToStr(num):
+    return str(num)
 
 time_start = None
 time_stop = None
@@ -272,7 +290,7 @@ class LoginDialog(QDialog):
         self.picLabel = QLabel('', self)
         self.picLabel.setFrameStyle(QFrame.Panel | QFrame.Sunken)
         self.picLabel.setGeometry(0, 0, 350, 140)
-        self.movie = QMovie('杜甫.gif')
+        self.movie = QMovie('df.gif')
         if self.movie.isValid():
             self.picLabel.setMovie(self.movie)
             self.picLabel.setScaledContents(True)
@@ -586,8 +604,20 @@ class Thread_get(QThread):
         global person
 
         zh = {'优': '95', '良': '85', '中': '75', '及格': '65', '不及格': '55'}
-        ctx = execjs.compile(jsstr)
-        params = ctx.call('UserLogin', self.accounts[0], self.passwords[0])
+        #ctx = execjs.compile(jsstr)
+        #params = ctx.call('UserLogin', self.accounts[0], self.passwords[0])
+
+        sign = int(round((time.time() * 1000)))  # 获取时间戳
+        o = md5Encode(self.passwords[0])
+        str2 = self.accounts[0] + IntToStr(sign) + o  # 加密算法
+        pwd = md5Encode(str2)  # MD5加密
+        params = {
+            'Action': "Login",
+            'userName': self.accounts[0],
+            'pwd': pwd,
+            'sign': sign,
+        }
+
         session = requests.Session()
         session.post(login_url, params)
         s = session.get(score_url)
@@ -618,8 +648,20 @@ class Thread_get(QThread):
                 loop = 0
                 while len(score) == 0:
                     loop += 1
-                    ctx = execjs.compile(jsstr)
-                    params = ctx.call('UserLogin', self.accounts[i], self.passwords[i])
+                    #ctx = execjs.compile(jsstr)
+                    #params = ctx.call('UserLogin', self.accounts[i], self.passwords[i])
+
+                    sign = int(round((time.time() * 1000)))  # 获取时间戳
+                    o = md5Encode(self.passwords[i])
+                    str2 = self.accounts[i] + IntToStr(sign) + o  # 加密算法
+                    pwd = md5Encode(str2)  # MD5加密
+                    params = {
+                        'Action': "Login",
+                        'userName': self.accounts[i],
+                        'pwd': pwd,
+                        'sign': sign,
+                    }
+
                     session = requests.Session()
                     session.post(login_url, params)
                     s = session.get(score_url)
@@ -689,7 +731,7 @@ class Thread_get(QThread):
                             qh += (score[item] / 10 - 5) * credit[item]
 
                     jd = qh / allXf
-                    score['aaa本学期绩点(不含选修)'] = float(jd)
+                    score['AAA本学期绩点(不含选修)'] = float(jd)
 
                     for item in score2.keys():
                         if isRX2[item] == 0:
@@ -697,7 +739,7 @@ class Thread_get(QThread):
                             qh3 += (score2[item] / 10 - 5) * credit2[item]
 
                     jd = qh3 / allXf3
-                    score['aab本学年绩点(不含选修)'] = float(jd)
+                    score['AAB本学年绩点(不含选修)'] = float(jd)
 
                     for item in allScore.keys():
                         if allIsRX[item] == 0:
@@ -705,17 +747,17 @@ class Thread_get(QThread):
                             qh2 += (allScore[item] / 10 - 5) * allCredit[item]
 
                     jd = qh2 / allXf2
-                    score['aac总绩点(不含选修)'] = float(jd)
+                    score['AAC总绩点(不含选修)'] = float(jd)
 
                     while loop > 20:
                         raise Exception
                 person[name[0].strip()] = score
 
-                self.file_changed_signal.emit('{} 存储成功！'.format(self.accounts[i]))
+                self.file_changed_signal.emit('{} 获取成功！'.format(self.accounts[i]))
 
             except Exception:
                 self.errorCnt += 1
-                self.file_changed_signal.emit('{} 存储<span style="color: red">失败</span>！'.format(self.accounts[i]))
+                self.file_changed_signal.emit('{} 获取<span style="color: red">失败</span>！'.format(self.accounts[i]))
 
         self.save_to_excel = Thread_save_to_excel(self.file)
         self.save_to_excel.start()
@@ -781,8 +823,18 @@ class Thread_save_to_mongodb(QThread):
 
 
 if __name__ == '__main__':
+    get_pic(app_ico, 'app.ico')
+    get_pic(My_logo_jpg, 'My_logo.jpg')
+    get_pic(pic3_jpg, 'pic3.jpg')
+    get_pic(df_gif, 'df.gif')
+
     app = QApplication(sys.argv)
     lg = LoginDialog()
     gs = GetScore()
     lg.login_signal.connect(gs.showOrcloseDialog)
     sys.exit(app.exec_())
+
+    os.remove('app.ico')
+    os.remove('My_logo.jpg')
+    os.remove('pic3.jpg')
+    os.remove('df.gif')
